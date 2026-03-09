@@ -654,7 +654,7 @@
         const overflowHtml = overflow.length ? `
           <div class="guild-live-overflow">
             <div class="section-label">Overflow</div>
-            ${overflow.map(cat => cardHtml(cat, 'overflow')).join('')}
+            ${overflow.map(cat => cardHtml(cat, cat.channel_count > 0 ? 'overflow' : '')).join('')}
           </div>` : '';
 
         return `
