@@ -26,17 +26,39 @@
     }
 
     header h1 { font-size: 17px; font-weight: 700; color: #fff; }
+    header a { font-size: 13px; color: #949ba4; text-decoration: none; }
+    header a:hover { color: #dbdee1; }
 
-    header a {
-      font-size: 13px;
-      color: #949ba4;
-      text-decoration: none;
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 24px;
+      background: #2b2d31;
+      border-bottom: 1px solid #1e1f22;
     }
 
-    header a:hover { color: #dbdee1; }
+    .tab-btn {
+      padding: 12px 18px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #949ba4;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn.active { color: #fff; border-bottom-color: #5865f2; }
+    .tab-btn:hover:not(.active) { color: #dbdee1; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
 
     .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
 
+    /* ── Filters ── */
     .filters {
       background: #2b2d31;
       border-radius: 8px;
@@ -72,12 +94,7 @@
 
     select:focus, input[type="date"]:focus { border-color: #5865f2; }
 
-    .toggle {
-      display: flex;
-      background: #1e1f22;
-      border-radius: 4px;
-      overflow: hidden;
-    }
+    .toggle { display: flex; background: #1e1f22; border-radius: 4px; overflow: hidden; }
 
     .toggle button {
       padding: 7px 14px;
@@ -90,11 +107,9 @@
       transition: background 0.15s, color 0.15s;
     }
 
-    .toggle button.active {
-      background: #5865f2;
-      color: #fff;
-    }
+    .toggle button.active { background: #5865f2; color: #fff; }
 
+    /* ── Charts ── */
     .charts {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -128,6 +143,109 @@
       color: #4e5058;
       font-size: 14px;
     }
+
+    /* ── Live tab ── */
+    .live-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .live-header span { font-size: 13px; color: #949ba4; }
+
+    .live-pulse {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #23a55a;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .guild-section { margin-bottom: 28px; }
+
+    .guild-section h3 {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #949ba4;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1e1f22;
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .category-card {
+      background: #2b2d31;
+      border-radius: 8px;
+      padding: 16px;
+      border-left: 4px solid;
+    }
+
+    .category-card.green  { border-color: #23a55a; }
+    .category-card.yellow { border-color: #f0b132; }
+    .category-card.red    { border-color: #f23f43; }
+
+    .category-card .cat-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-bar-bg {
+      background: #1e1f22;
+      border-radius: 4px;
+      height: 6px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s;
+    }
+
+    .green  .progress-bar-fill { background: #23a55a; }
+    .yellow .progress-bar-fill { background: #f0b132; }
+    .red    .progress-bar-fill { background: #f23f43; }
+
+    .cat-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .cat-count { font-weight: 700; }
+    .green  .cat-count { color: #23a55a; }
+    .yellow .cat-count { color: #f0b132; }
+    .red    .cat-count { color: #f23f43; }
+
+    .cat-time { color: #72767d; }
+
+    .live-empty {
+      text-align: center;
+      padding: 60px 0;
+      color: #4e5058;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -136,66 +254,101 @@
     <a href="/logout">Log out</a>
   </header>
 
-  <div class="container">
-    <div class="filters">
-      <div class="filter-group">
-        <label>Guild</label>
-        <select id="guild-select">
-          <option value="">All guilds</option>
-          {% for g in guilds %}
-          <option value="{{ g.guild_id }}">{{ g.guild_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('charts')">Charts</button>
+    <button class="tab-btn" onclick="switchTab('live')">
+      <span class="live-pulse"></span>Live
+    </button>
+  </div>
 
-      <div class="filter-group">
-        <label>Category</label>
-        <select id="category-select">
-          <option value="">All categories</option>
-          {% for c in categories %}
-          <option value="{{ c.category_id }}" data-guild="{{ c.guild_id }}">{{ c.category_name }}</option>
-          {% endfor %}
-        </select>
-      </div>
+  <!-- ── Charts tab ── -->
+  <div id="tab-charts" class="tab-panel active">
+    <div class="container">
+      <div class="filters">
+        <div class="filter-group">
+          <label>Guild</label>
+          <select id="guild-select">
+            <option value="">All guilds</option>
+            {% for g in guilds %}
+            <option value="{{ g.guild_id }}">{{ g.guild_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
 
-      <div class="filter-group">
-        <label>From</label>
-        <input type="date" id="start-date">
-      </div>
+        <div class="filter-group">
+          <label>Category</label>
+          <select id="category-select">
+            <option value="">All categories</option>
+            {% for c in categories %}
+            <option value="{{ c.category_id }}" data-guild="{{ c.guild_id }}">{{ c.category_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
 
-      <div class="filter-group">
-        <label>To</label>
-        <input type="date" id="end-date">
-      </div>
+        <div class="filter-group">
+          <label>From</label>
+          <input type="date" id="start-date">
+        </div>
 
-      <div class="filter-group">
-        <label>Group by</label>
-        <div class="toggle">
-          <button id="btn-day" class="active" onclick="setGroupBy('day')">Day</button>
-          <button id="btn-hour" onclick="setGroupBy('hour')">Hour</button>
+        <div class="filter-group">
+          <label>To</label>
+          <input type="date" id="end-date">
+        </div>
+
+        <div class="filter-group">
+          <label>Group by</label>
+          <div class="toggle">
+            <button id="btn-day" class="active" onclick="setGroupBy('day')">Day</button>
+            <button id="btn-hour" onclick="setGroupBy('hour')">Hour</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="charts">
-      <div class="chart-card">
-        <h2>Ticket Volume Over Time</h2>
-        <div class="chart-wrap">
-          <canvas id="volume-chart"></canvas>
-          <div class="empty" id="volume-empty" style="display:none">No data for selected filters</div>
+      <div class="charts">
+        <div class="chart-card">
+          <h2>Ticket Volume Over Time</h2>
+          <div class="chart-wrap">
+            <canvas id="volume-chart"></canvas>
+            <div class="empty" id="volume-empty" style="display:none">No data for selected filters</div>
+          </div>
         </div>
-      </div>
-      <div class="chart-card">
-        <h2>Volume by Hour of Day</h2>
-        <div class="chart-wrap">
-          <canvas id="hourly-chart"></canvas>
-          <div class="empty" id="hourly-empty" style="display:none">No data for selected filters</div>
+        <div class="chart-card">
+          <h2>Volume by Hour of Day</h2>
+          <div class="chart-wrap">
+            <canvas id="hourly-chart"></canvas>
+            <div class="empty" id="hourly-empty" style="display:none">No data for selected filters</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- ── Live tab ── -->
+  <div id="tab-live" class="tab-panel">
+    <div class="container">
+      <div class="live-header">
+        <span><span class="live-pulse"></span>Refreshes every 30s &mdash; last known channel count per category</span>
+        <span id="live-refresh-info"></span>
+      </div>
+      <div id="live-content">
+        <div class="live-empty">Loading&hellip;</div>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // ── Tabs ──────────────────────────────────────────────
+    function switchTab(name) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-' + name).classList.add('active');
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        if (b.textContent.trim().toLowerCase().includes(name)) b.classList.add('active');
+      });
+      if (name === 'live') fetchLive();
+    }
+
+    // ── Charts ────────────────────────────────────────────
     const OPEN_COLOR  = 'rgba(87, 242, 135, 0.8)';
     const CLOSE_COLOR = 'rgba(242, 63, 67, 0.8)';
 
@@ -216,7 +369,7 @@
       groupBy = val;
       document.getElementById('btn-day').classList.toggle('active', val === 'day');
       document.getElementById('btn-hour').classList.toggle('active', val === 'hour');
-      fetchData();
+      fetchCharts();
     }
 
     function getFilters() {
@@ -237,10 +390,10 @@
       });
       const sel = document.getElementById('category-select');
       if (sel.selectedOptions[0]?.hidden) sel.value = '';
-      fetchData();
+      fetchCharts();
     }
 
-    async function fetchData() {
+    async function fetchCharts() {
       const res = await fetch('/api/events?' + getFilters());
       const data = await res.json();
       renderVolume(data.volume);
@@ -254,7 +407,7 @@
         if (r.event_type === 'open')  opens[r[keyField]]  = r.count;
         if (r.event_type === 'close') closes[r[keyField]] = r.count;
       });
-      const sorted = [...labels].sort();
+      const sorted = [...labels].sort((a, b) => String(a).localeCompare(String(b)));
       return {
         labels: sorted,
         openData:  sorted.map(l => opens[l]  || 0),
@@ -266,8 +419,7 @@
       const empty = document.getElementById('volume-empty');
       const canvas = document.getElementById('volume-chart');
       if (!rows.length) {
-        empty.style.display = 'flex'; canvas.style.display = 'none';
-        return;
+        empty.style.display = 'flex'; canvas.style.display = 'none'; return;
       }
       empty.style.display = 'none'; canvas.style.display = 'block';
 
@@ -297,8 +449,7 @@
       const empty = document.getElementById('hourly-empty');
       const canvas = document.getElementById('hourly-chart');
       if (!rows.length) {
-        empty.style.display = 'flex'; canvas.style.display = 'none';
-        return;
+        empty.style.display = 'flex'; canvas.style.display = 'none'; return;
       }
       empty.style.display = 'none'; canvas.style.display = 'block';
 
@@ -319,18 +470,87 @@
       });
     }
 
-    // Default date range: last 30 days
+    // ── Live ──────────────────────────────────────────────
+    let liveTimer = null;
+
+    async function fetchLive() {
+      const res = await fetch('/api/live');
+      const data = await res.json();
+      renderLive(data);
+
+      document.getElementById('live-refresh-info').textContent =
+        'Updated ' + new Date().toLocaleTimeString();
+    }
+
+    function colorClass(count) {
+      if (count >= 50) return 'red';
+      if (count >= 40) return 'yellow';
+      return 'green';
+    }
+
+    function timeAgo(isoString) {
+      const diff = Math.floor((Date.now() - new Date(isoString)) / 1000);
+      if (diff < 60) return `${diff}s ago`;
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    }
+
+    function renderLive(data) {
+      const container = document.getElementById('live-content');
+      if (!data.length) {
+        container.innerHTML = '<div class="live-empty">No data yet — ticket events will appear here as they are recorded.</div>';
+        return;
+      }
+
+      // Group by guild
+      const byGuild = {};
+      data.forEach(row => {
+        if (!byGuild[row.guild_id]) byGuild[row.guild_id] = { name: row.guild_name, categories: [] };
+        byGuild[row.guild_id].categories.push(row);
+      });
+
+      container.innerHTML = Object.values(byGuild).map(guild => `
+        <div class="guild-section">
+          <h3>${guild.name}</h3>
+          <div class="category-grid">
+            ${guild.categories.map(cat => {
+              const pct = Math.min((cat.channel_count / 50) * 100, 100);
+              const cls = colorClass(cat.channel_count);
+              return `
+                <div class="category-card ${cls}">
+                  <div class="cat-name">${cat.category_name}</div>
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" style="width:${pct}%"></div>
+                  </div>
+                  <div class="cat-meta">
+                    <span class="cat-count">${cat.channel_count} / 50</span>
+                    <span class="cat-time">${timeAgo(cat.timestamp)}</span>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Auto-refresh live tab every 30s
+    setInterval(() => {
+      if (document.getElementById('tab-live').classList.contains('active')) fetchLive();
+    }, 30000);
+
+    // ── Init ──────────────────────────────────────────────
     const today = new Date();
     const ago30 = new Date(today); ago30.setDate(today.getDate() - 30);
     document.getElementById('end-date').value   = today.toISOString().slice(0, 10);
     document.getElementById('start-date').value = ago30.toISOString().slice(0, 10);
 
     document.getElementById('guild-select').addEventListener('change', filterCategories);
-    document.getElementById('category-select').addEventListener('change', fetchData);
-    document.getElementById('start-date').addEventListener('change', fetchData);
-    document.getElementById('end-date').addEventListener('change', fetchData);
+    document.getElementById('category-select').addEventListener('change', fetchCharts);
+    document.getElementById('start-date').addEventListener('change', fetchCharts);
+    document.getElementById('end-date').addEventListener('change', fetchCharts);
 
-    fetchData();
+    fetchCharts();
   </script>
 </body>
 </html>

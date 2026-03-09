@@ -110,7 +110,10 @@ async def api_events(
         params.append(datetime.fromisoformat(start).replace(tzinfo=timezone.utc))
         conditions.append(f"timestamp >= ${len(params)}")
     if end:
-        params.append(datetime.fromisoformat(end).replace(tzinfo=timezone.utc))
+        # Include the full end day by moving to start of next day
+        end_dt = datetime.fromisoformat(end).replace(tzinfo=timezone.utc)
+        end_dt = end_dt.replace(hour=23, minute=59, second=59)
+        params.append(end_dt)
         conditions.append(f"timestamp <= ${len(params)}")
 
     where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
@@ -155,3 +158,32 @@ async def api_events(
         "volume": serialize(volume_rows),
         "hourly": serialize(hourly_rows),
     })
+
+
+@app.get("/api/live")
+async def api_live(request: Request):
+    if not check_session(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    async with db_pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT DISTINCT ON (guild_id, category_id)
+                guild_id, guild_name, category_id, category_name,
+                channel_count, event_type, timestamp
+            FROM ticket_events
+            ORDER BY guild_id, category_id, timestamp DESC
+        """)
+
+    result = []
+    for r in rows:
+        result.append({
+            "guild_id": r["guild_id"],
+            "guild_name": r["guild_name"],
+            "category_id": r["category_id"],
+            "category_name": r["category_name"],
+            "channel_count": r["channel_count"],
+            "event_type": r["event_type"],
+            "timestamp": r["timestamp"].isoformat(),
+        })
+
+    return JSONResponse(result)
