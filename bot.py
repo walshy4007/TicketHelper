@@ -31,7 +31,7 @@ async def on_guild_channel_create(channel: discord.abc.GuildChannel):
 
     cfg = guild_config[guild_id]
     category = channel.category
-    if category is None or str(category.id) != cfg["overflow_category_id"]:
+    if category is None or str(category.id) not in cfg["monitored_categories"]:
         return
 
     channel_count = len(category.channels)
@@ -70,7 +70,7 @@ async def on_guild_channel_delete(channel: discord.abc.GuildChannel):
 
     cfg = guild_config[guild_id]
     category = channel.category
-    if category is None or str(category.id) != cfg["overflow_category_id"]:
+    if category is None or str(category.id) not in cfg["monitored_categories"]:
         return
 
     # After deletion the channel is already removed, so count reflects the new total
