@@ -1,0 +1,11 @@
+services:
+  bot:
+    build: .
+    container_name: tickethelper-bot
+    restart: unless-stopped
+    volumes:
+      - ./config.json:/app/config.json:ro
+
+networks:
+  tickethelper_default:
+    external: true
