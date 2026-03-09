@@ -328,6 +328,14 @@
           <div class="empty" id="category-empty" style="display:none">No data for selected filters</div>
         </div>
       </div>
+
+      <div class="chart-card" style="margin-top:20px">
+        <h2>Capacity Hits by Category</h2>
+        <div class="chart-wrap">
+          <canvas id="capacity-chart"></canvas>
+          <div class="empty" id="capacity-empty" style="display:none">No data for selected filters</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -361,7 +369,7 @@
     const CLOSE_COLOR = 'rgba(242, 63, 67, 0.8)';
 
     let groupBy = 'day';
-    let volumeChart, hourlyChart;
+    let volumeChart, hourlyChart, capacityChart;
 
     const chartDefaults = {
       responsive: true,
@@ -407,6 +415,7 @@
       renderVolume(data.volume);
       renderHourly(data.hourly);
       renderCategory(data.by_category);
+      renderCapacity(data.capacity);
     }
 
     function pivotByType(rows, keyField) {
@@ -499,6 +508,30 @@
           datasets: [
             { label: 'Opened', data: openData,  backgroundColor: OPEN_COLOR  },
             { label: 'Closed', data: closeData, backgroundColor: CLOSE_COLOR },
+          ],
+        },
+        options: { ...chartDefaults },
+      });
+    }
+
+    function renderCapacity(rows) {
+      const empty = document.getElementById('capacity-empty');
+      const canvas = document.getElementById('capacity-chart');
+      if (!rows || !rows.length) {
+        empty.style.display = 'flex'; canvas.style.display = 'none'; return;
+      }
+      empty.style.display = 'none'; canvas.style.display = 'block';
+
+      const labels = rows.map(r => r.category_name);
+      const counts = rows.map(r => r.count);
+
+      if (capacityChart) capacityChart.destroy();
+      capacityChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Capacity Hits', data: counts, backgroundColor: 'rgba(240, 177, 50, 0.8)' },
           ],
         },
         options: { ...chartDefaults },

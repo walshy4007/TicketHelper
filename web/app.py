@@ -157,6 +157,32 @@ async def api_events(
             ORDER BY category_name
         """, *params)
 
+        # Capacity hits by category (open events where channel_count >= 50)
+        cap_conditions = ["event_type = 'open'", "channel_count >= 50"]
+        cap_params = []
+        if guild_id:
+            cap_params.append(guild_id)
+            cap_conditions.append(f"guild_id = ${len(cap_params)}")
+        if category_id:
+            cap_params.append(category_id)
+            cap_conditions.append(f"category_id = ${len(cap_params)}")
+        if start:
+            cap_params.append(datetime.fromisoformat(start).replace(tzinfo=timezone.utc))
+            cap_conditions.append(f"timestamp >= ${len(cap_params)}")
+        if end:
+            cap_end_dt = datetime.fromisoformat(end).replace(tzinfo=timezone.utc)
+            cap_end_dt = cap_end_dt.replace(hour=23, minute=59, second=59)
+            cap_params.append(cap_end_dt)
+            cap_conditions.append(f"timestamp <= ${len(cap_params)}")
+        cap_where = "WHERE " + " AND ".join(cap_conditions)
+        capacity_rows = await conn.fetch(f"""
+            SELECT category_name, COUNT(*) AS count
+            FROM ticket_events
+            {cap_where}
+            GROUP BY category_name
+            ORDER BY count DESC
+        """, *cap_params)
+
     def serialize(rows):
         result = []
         for r in rows:
@@ -170,6 +196,7 @@ async def api_events(
         "volume": serialize(volume_rows),
         "hourly": serialize(hourly_rows),
         "by_category": serialize(category_rows),
+        "capacity": serialize(capacity_rows),
     })
 
 
