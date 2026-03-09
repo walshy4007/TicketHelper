@@ -1,4 +1,6 @@
 import json
+import os
+import asyncpg
 import discord
 from datetime import datetime, timezone
 
@@ -9,16 +11,52 @@ with open("config.json") as f:
 
 guild_config: dict[str, dict] = config["guilds"]
 
-# Track which categories are currently known to be at capacity
 categories_at_capacity: set[int] = set()
 
 intents = discord.Intents.default()
 intents.guilds = True
 client = discord.Client(intents=intents)
 
+db_pool: asyncpg.Pool | None = None
+
+
+async def init_db():
+    global db_pool
+    db_pool = await asyncpg.create_pool(os.environ["DATABASE_URL"])
+    async with db_pool.acquire() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS ticket_events (
+                id SERIAL PRIMARY KEY,
+                timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                guild_id TEXT NOT NULL,
+                guild_name TEXT NOT NULL,
+                category_id TEXT NOT NULL,
+                category_name TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                channel_count INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_events_timestamp ON ticket_events(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_events_guild_category ON ticket_events(guild_id, category_id);
+        """)
+    print("Connected to database")
+
+
+async def log_event(guild: discord.Guild, category: discord.CategoryChannel, event_type: str, channel_count: int):
+    if db_pool is None:
+        return
+    async with db_pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO ticket_events (guild_id, guild_name, category_id, category_name, event_type, channel_count)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            str(guild.id), guild.name, str(category.id), category.name, event_type, channel_count,
+        )
+
 
 @client.event
 async def on_ready():
+    await init_db()
     print(f"Logged in as {client.user} ({client.user.id})")
     print(f"Monitoring {len(guild_config)} guild(s)")
 
@@ -35,6 +73,8 @@ async def on_guild_channel_create(channel: discord.abc.GuildChannel):
         return
 
     channel_count = len(category.channels)
+
+    await log_event(channel.guild, category, "open", channel_count)
 
     if channel_count >= DISCORD_CATEGORY_MAX and category.id not in categories_at_capacity:
         categories_at_capacity.add(category.id)
@@ -73,8 +113,9 @@ async def on_guild_channel_delete(channel: discord.abc.GuildChannel):
     if category is None or str(category.id) not in cfg["monitored_categories"]:
         return
 
-    # After deletion the channel is already removed, so count reflects the new total
     channel_count = len(category.channels)
+
+    await log_event(channel.guild, category, "close", channel_count)
 
     if category.id in categories_at_capacity and channel_count < DISCORD_CATEGORY_MAX:
         categories_at_capacity.discard(category.id)

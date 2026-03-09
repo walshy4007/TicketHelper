@@ -1,10 +1,44 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: tickethelper-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tickethelper
+      POSTGRES_USER: tickethelper
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   bot:
     build: .
     container_name: tickethelper-bot
     restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://tickethelper:${DB_PASSWORD}@db:5432/tickethelper
     volumes:
       - ./config.json:/app/config.json:ro
+
+  web:
+    build: ./web
+    container_name: tickethelper-web
+    restart: unless-stopped
+    depends_on:
+      - db
+    expose:
+      - "3000"
+    environment:
+      DATABASE_URL: postgresql://tickethelper:${DB_PASSWORD}@db:5432/tickethelper
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD}
+      SECRET_KEY: ${SECRET_KEY}
+    networks:
+      - default
+      - tickethelper_default
+
+volumes:
+  pgdata:
 
 networks:
   tickethelper_default:

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicketHelper &mdash; Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1e1f22;
+      color: #dbdee1;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #2b2d31;
+      border-bottom: 1px solid #1e1f22;
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 { font-size: 17px; font-weight: 700; color: #fff; }
+
+    header a {
+      font-size: 13px;
+      color: #949ba4;
+      text-decoration: none;
+    }
+
+    header a:hover { color: #dbdee1; }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+    .filters {
+      background: #2b2d31;
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-end;
+      margin-bottom: 24px;
+    }
+
+    .filter-group { display: flex; flex-direction: column; gap: 5px; }
+
+    .filter-group label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #b5bac1;
+    }
+
+    select, input[type="date"] {
+      background: #1e1f22;
+      border: 1px solid #1e1f22;
+      color: #dbdee1;
+      padding: 7px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      outline: none;
+      min-width: 140px;
+      cursor: pointer;
+    }
+
+    select:focus, input[type="date"]:focus { border-color: #5865f2; }
+
+    .toggle {
+      display: flex;
+      background: #1e1f22;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .toggle button {
+      padding: 7px 14px;
+      background: none;
+      border: none;
+      color: #949ba4;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .toggle button.active {
+      background: #5865f2;
+      color: #fff;
+    }
+
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    @media (max-width: 800px) { .charts { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: #2b2d31;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .chart-card h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #b5bac1;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .chart-wrap { position: relative; height: 280px; }
+
+    .empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 280px;
+      color: #4e5058;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TicketHelper Dashboard</h1>
+    <a href="/logout">Log out</a>
+  </header>
+
+  <div class="container">
+    <div class="filters">
+      <div class="filter-group">
+        <label>Guild</label>
+        <select id="guild-select">
+          <option value="">All guilds</option>
+          {% for g in guilds %}
+          <option value="{{ g.guild_id }}">{{ g.guild_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Category</label>
+        <select id="category-select">
+          <option value="">All categories</option>
+          {% for c in categories %}
+          <option value="{{ c.category_id }}" data-guild="{{ c.guild_id }}">{{ c.category_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>From</label>
+        <input type="date" id="start-date">
+      </div>
+
+      <div class="filter-group">
+        <label>To</label>
+        <input type="date" id="end-date">
+      </div>
+
+      <div class="filter-group">
+        <label>Group by</label>
+        <div class="toggle">
+          <button id="btn-day" class="active" onclick="setGroupBy('day')">Day</button>
+          <button id="btn-hour" onclick="setGroupBy('hour')">Hour</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-card">
+        <h2>Ticket Volume Over Time</h2>
+        <div class="chart-wrap">
+          <canvas id="volume-chart"></canvas>
+          <div class="empty" id="volume-empty" style="display:none">No data for selected filters</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h2>Volume by Hour of Day</h2>
+        <div class="chart-wrap">
+          <canvas id="hourly-chart"></canvas>
+          <div class="empty" id="hourly-empty" style="display:none">No data for selected filters</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const OPEN_COLOR  = 'rgba(87, 242, 135, 0.8)';
+    const CLOSE_COLOR = 'rgba(242, 63, 67, 0.8)';
+
+    let groupBy = 'day';
+    let volumeChart, hourlyChart;
+
+    const chartDefaults = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#b5bac1', boxWidth: 12 } } },
+      scales: {
+        x: { ticks: { color: '#72767d' }, grid: { color: '#1e1f22' } },
+        y: { ticks: { color: '#72767d' }, grid: { color: '#1e1f22' }, beginAtZero: true }
+      }
+    };
+
+    function setGroupBy(val) {
+      groupBy = val;
+      document.getElementById('btn-day').classList.toggle('active', val === 'day');
+      document.getElementById('btn-hour').classList.toggle('active', val === 'hour');
+      fetchData();
+    }
+
+    function getFilters() {
+      return new URLSearchParams({
+        guild_id: document.getElementById('guild-select').value,
+        category_id: document.getElementById('category-select').value,
+        start: document.getElementById('start-date').value,
+        end: document.getElementById('end-date').value,
+        group_by: groupBy,
+      });
+    }
+
+    function filterCategories() {
+      const guildId = document.getElementById('guild-select').value;
+      document.querySelectorAll('#category-select option').forEach(opt => {
+        if (!opt.value) return;
+        opt.hidden = guildId ? opt.dataset.guild !== guildId : false;
+      });
+      const sel = document.getElementById('category-select');
+      if (sel.selectedOptions[0]?.hidden) sel.value = '';
+      fetchData();
+    }
+
+    async function fetchData() {
+      const res = await fetch('/api/events?' + getFilters());
+      const data = await res.json();
+      renderVolume(data.volume);
+      renderHourly(data.hourly);
+    }
+
+    function pivotByType(rows, keyField) {
+      const opens = {}, closes = {}, labels = new Set();
+      rows.forEach(r => {
+        labels.add(r[keyField]);
+        if (r.event_type === 'open')  opens[r[keyField]]  = r.count;
+        if (r.event_type === 'close') closes[r[keyField]] = r.count;
+      });
+      const sorted = [...labels].sort();
+      return {
+        labels: sorted,
+        openData:  sorted.map(l => opens[l]  || 0),
+        closeData: sorted.map(l => closes[l] || 0),
+      };
+    }
+
+    function renderVolume(rows) {
+      const empty = document.getElementById('volume-empty');
+      const canvas = document.getElementById('volume-chart');
+      if (!rows.length) {
+        empty.style.display = 'flex'; canvas.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none'; canvas.style.display = 'block';
+
+      const { labels, openData, closeData } = pivotByType(rows, 'period');
+      const formattedLabels = labels.map(l => {
+        const d = new Date(l);
+        return groupBy === 'hour'
+          ? d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+          : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      });
+
+      if (volumeChart) volumeChart.destroy();
+      volumeChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: formattedLabels,
+          datasets: [
+            { label: 'Opened', data: openData,  backgroundColor: OPEN_COLOR  },
+            { label: 'Closed', data: closeData, backgroundColor: CLOSE_COLOR },
+          ],
+        },
+        options: { ...chartDefaults },
+      });
+    }
+
+    function renderHourly(rows) {
+      const empty = document.getElementById('hourly-empty');
+      const canvas = document.getElementById('hourly-chart');
+      if (!rows.length) {
+        empty.style.display = 'flex'; canvas.style.display = 'none';
+        return;
+      }
+      empty.style.display = 'none'; canvas.style.display = 'block';
+
+      const { labels, openData, closeData } = pivotByType(rows, 'hour');
+      const hourLabels = labels.map(h => `${String(h).padStart(2,'0')}:00`);
+
+      if (hourlyChart) hourlyChart.destroy();
+      hourlyChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: hourLabels,
+          datasets: [
+            { label: 'Opened', data: openData,  backgroundColor: OPEN_COLOR  },
+            { label: 'Closed', data: closeData, backgroundColor: CLOSE_COLOR },
+          ],
+        },
+        options: { ...chartDefaults },
+      });
+    }
+
+    // Default date range: last 30 days
+    const today = new Date();
+    const ago30 = new Date(today); ago30.setDate(today.getDate() - 30);
+    document.getElementById('end-date').value   = today.toISOString().slice(0, 10);
+    document.getElementById('start-date').value = ago30.toISOString().slice(0, 10);
+
+    document.getElementById('guild-select').addEventListener('change', filterCategories);
+    document.getElementById('category-select').addEventListener('change', fetchData);
+    document.getElementById('start-date').addEventListener('change', fetchData);
+    document.getElementById('end-date').addEventListener('change', fetchData);
+
+    fetchData();
+  </script>
+</body>
+</html>
