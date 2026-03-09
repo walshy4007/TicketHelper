@@ -320,6 +320,14 @@
           </div>
         </div>
       </div>
+
+      <div class="chart-card" style="margin-top:20px">
+        <h2>Ticket Volume by Category</h2>
+        <div class="chart-wrap">
+          <canvas id="category-chart"></canvas>
+          <div class="empty" id="category-empty" style="display:none">No data for selected filters</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -398,6 +406,7 @@
       const data = await res.json();
       renderVolume(data.volume);
       renderHourly(data.hourly);
+      renderCategory(data.by_category);
     }
 
     function pivotByType(rows, keyField) {
@@ -461,6 +470,32 @@
         type: 'bar',
         data: {
           labels: hourLabels,
+          datasets: [
+            { label: 'Opened', data: openData,  backgroundColor: OPEN_COLOR  },
+            { label: 'Closed', data: closeData, backgroundColor: CLOSE_COLOR },
+          ],
+        },
+        options: { ...chartDefaults },
+      });
+    }
+
+    let categoryChart;
+
+    function renderCategory(rows) {
+      const empty = document.getElementById('category-empty');
+      const canvas = document.getElementById('category-chart');
+      if (!rows.length) {
+        empty.style.display = 'flex'; canvas.style.display = 'none'; return;
+      }
+      empty.style.display = 'none'; canvas.style.display = 'block';
+
+      const { labels, openData, closeData } = pivotByType(rows, 'category_name');
+
+      if (categoryChart) categoryChart.destroy();
+      categoryChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
           datasets: [
             { label: 'Opened', data: openData,  backgroundColor: OPEN_COLOR  },
             { label: 'Closed', data: closeData, backgroundColor: CLOSE_COLOR },

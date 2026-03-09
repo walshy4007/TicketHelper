@@ -145,6 +145,18 @@ async def api_events(
             ORDER BY hour
         """, *params)
 
+        # Volume by category
+        category_rows = await conn.fetch(f"""
+            SELECT
+                category_name,
+                event_type,
+                COUNT(*) AS count
+            FROM ticket_events
+            {where}
+            GROUP BY category_name, event_type
+            ORDER BY category_name
+        """, *params)
+
     def serialize(rows):
         result = []
         for r in rows:
@@ -157,6 +169,7 @@ async def api_events(
     return JSONResponse({
         "volume": serialize(volume_rows),
         "hourly": serialize(hourly_rows),
+        "by_category": serialize(category_rows),
     })
 
 
