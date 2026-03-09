@@ -1,0 +1,13 @@
+{
+  "token": "YOUR_BOT_TOKEN_HERE",
+  "guilds": {
+    "GUILD_ID_1": {
+      "overflow_category_id": "CATEGORY_ID_1",
+      "log_channel_id": "LOG_CHANNEL_ID_1"
+    },
+    "GUILD_ID_2": {
+      "overflow_category_id": "CATEGORY_ID_2",
+      "log_channel_id": "LOG_CHANNEL_ID_2"
+    }
+  }
+}
