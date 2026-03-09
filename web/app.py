@@ -214,8 +214,52 @@ async def api_live(request: Request):
             ORDER BY guild_id, category_id, timestamp DESC
         """)
 
+        # For at-capacity categories, find the last time they were NOT full
+        # (approximates when the current full-streak started)
+        not_full_rows = await conn.fetch("""
+            SELECT DISTINCT ON (guild_id, category_id)
+                guild_id, category_id, timestamp
+            FROM ticket_events
+            WHERE channel_count < 50
+              AND (guild_id, category_id) IN (
+                  SELECT guild_id, category_id FROM (
+                      SELECT DISTINCT ON (guild_id, category_id)
+                          guild_id, category_id, channel_count
+                      FROM ticket_events
+                      ORDER BY guild_id, category_id, timestamp DESC
+                  ) sub
+                  WHERE channel_count >= 50
+              )
+            ORDER BY guild_id, category_id, timestamp DESC
+        """)
+        last_not_full = {(r["guild_id"], r["category_id"]): r["timestamp"] for r in not_full_rows}
+
+        # Fallback: earliest event for at-capacity categories that have no "not full" record
+        earliest_rows = await conn.fetch("""
+            SELECT DISTINCT ON (guild_id, category_id)
+                guild_id, category_id, timestamp
+            FROM ticket_events
+            WHERE (guild_id, category_id) IN (
+                SELECT guild_id, category_id FROM (
+                    SELECT DISTINCT ON (guild_id, category_id)
+                        guild_id, category_id, channel_count
+                    FROM ticket_events
+                    ORDER BY guild_id, category_id, timestamp DESC
+                ) sub
+                WHERE channel_count >= 50
+            )
+            ORDER BY guild_id, category_id, timestamp ASC
+        """)
+        earliest = {(r["guild_id"], r["category_id"]): r["timestamp"] for r in earliest_rows}
+
     result = []
     for r in rows:
+        key = (r["guild_id"], r["category_id"])
+        if r["channel_count"] >= 50:
+            since_ts = last_not_full.get(key) or earliest.get(key)
+            capacity_since = since_ts.isoformat() if since_ts else None
+        else:
+            capacity_since = None
         result.append({
             "guild_id": r["guild_id"],
             "guild_name": r["guild_name"],
@@ -224,6 +268,7 @@ async def api_live(request: Request):
             "channel_count": r["channel_count"],
             "event_type": r["event_type"],
             "timestamp": r["timestamp"].isoformat(),
+            "capacity_since": capacity_since,
         })
 
     return JSONResponse(result)

@@ -246,6 +246,48 @@
       color: #4e5058;
       font-size: 14px;
     }
+
+    /* ── Live two-column layout ── */
+    .guild-live-layout {
+      display: flex;
+      gap: 24px;
+    }
+
+    .guild-live-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .guild-live-overflow {
+      width: 280px;
+      flex-shrink: 0;
+    }
+
+    .guild-live-overflow .section-label {
+      color: #f23f43;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .category-card.overflow {
+      border-left: 4px solid #f23f43;
+      background: rgba(242, 63, 67, 0.08);
+      box-shadow: 0 0 0 1px rgba(242, 63, 67, 0.25);
+    }
+
+    .category-card.overflow .cat-name {
+      color: #f23f43;
+    }
+
+    .cat-full-duration {
+      font-size: 11px;
+      color: #f23f43;
+      font-weight: 600;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -564,6 +606,14 @@
       return `${Math.floor(diff / 86400)}d ago`;
     }
 
+    function formatDuration(isoString) {
+      const diffSecs = Math.floor((Date.now() - new Date(isoString)) / 1000);
+      const h = Math.floor(diffSecs / 3600);
+      const m = Math.floor((diffSecs % 3600) / 60);
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
     function renderLive(data) {
       const container = document.getElementById('live-content');
       if (!data.length) {
@@ -578,28 +628,48 @@
         byGuild[row.guild_id].categories.push(row);
       });
 
-      container.innerHTML = Object.values(byGuild).map(guild => `
-        <div class="guild-section">
-          <h3>${guild.name}</h3>
-          <div class="category-grid">
-            ${guild.categories.map(cat => {
-              const pct = Math.min((cat.channel_count / 50) * 100, 100);
-              const cls = colorClass(cat.channel_count);
-              return `
-                <div class="category-card ${cls}">
-                  <div class="cat-name">${cat.category_name}</div>
-                  <div class="progress-bar-bg">
-                    <div class="progress-bar-fill" style="width:${pct}%"></div>
-                  </div>
-                  <div class="cat-meta">
-                    <span class="cat-count">${cat.channel_count} / 50</span>
-                    <span class="cat-time">${timeAgo(cat.timestamp)}</span>
-                  </div>
-                </div>`;
-            }).join('')}
-          </div>
-        </div>
-      `).join('');
+      function cardHtml(cat, extraClass) {
+        const pct = Math.min((cat.channel_count / 50) * 100, 100);
+        const cls = colorClass(cat.channel_count);
+        const fullFor = cat.capacity_since ? formatDuration(cat.capacity_since) : '';
+        const classes = extraClass ? `category-card ${cls} ${extraClass}` : `category-card ${cls}`;
+        return `
+          <div class="${classes}">
+            <div class="cat-name">${cat.category_name}</div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <div class="cat-meta">
+              <span class="cat-count">${cat.channel_count} / 50</span>
+              <span class="cat-time">${timeAgo(cat.timestamp)}</span>
+            </div>
+            ${fullFor ? `<div class="cat-full-duration">Full for ${fullFor}</div>` : ''}
+          </div>`;
+      }
+
+      container.innerHTML = Object.values(byGuild).map(guild => {
+        const regular = guild.categories.filter(c => !c.category_name.toLowerCase().includes('overflow'));
+        const overflow = guild.categories.filter(c => c.category_name.toLowerCase().includes('overflow'));
+
+        const overflowHtml = overflow.length ? `
+          <div class="guild-live-overflow">
+            <div class="section-label">Overflow</div>
+            ${overflow.map(cat => cardHtml(cat, 'overflow')).join('')}
+          </div>` : '';
+
+        return `
+          <div class="guild-section">
+            <h3>${guild.name}</h3>
+            <div class="guild-live-layout">
+              <div class="guild-live-main">
+                <div class="category-grid">
+                  ${regular.map(cat => cardHtml(cat, '')).join('')}
+                </div>
+              </div>
+              ${overflowHtml}
+            </div>
+          </div>`;
+      }).join('');
     }
 
     // Auto-refresh live tab every 30s
