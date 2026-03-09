@@ -97,7 +97,7 @@ async def api_events(
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     # Build dynamic WHERE clause
-    conditions = []
+    conditions = ["event_type != 'snapshot'"]
     params = []
 
     if guild_id:

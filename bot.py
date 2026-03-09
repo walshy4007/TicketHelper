@@ -54,9 +54,25 @@ async def log_event(guild: discord.Guild, category: discord.CategoryChannel, eve
         )
 
 
+async def snapshot_categories():
+    count = 0
+    for guild_id, cfg in guild_config.items():
+        guild = client.get_guild(int(guild_id))
+        if guild is None:
+            continue
+        for category_id in cfg["monitored_categories"]:
+            category = guild.get_channel(int(category_id))
+            if not isinstance(category, discord.CategoryChannel):
+                continue
+            await log_event(guild, category, "snapshot", len(category.channels))
+            count += 1
+    print(f"Snapshotted {count} categories")
+
+
 @client.event
 async def on_ready():
     await init_db()
+    await snapshot_categories()
     print(f"Logged in as {client.user} ({client.user.id})")
     print(f"Monitoring {len(guild_config)} guild(s)")
 
