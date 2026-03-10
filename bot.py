@@ -37,20 +37,28 @@ async def init_db():
             );
             CREATE INDEX IF NOT EXISTS idx_events_timestamp ON ticket_events(timestamp);
             CREATE INDEX IF NOT EXISTS idx_events_guild_category ON ticket_events(guild_id, category_id);
+            ALTER TABLE ticket_events ADD COLUMN IF NOT EXISTS oldest_channel_ts TIMESTAMPTZ;
         """)
     print("Connected to database")
+
+
+def oldest_channel_created_at(category: discord.CategoryChannel) -> datetime | None:
+    if not category.channels:
+        return None
+    return min(ch.created_at for ch in category.channels)
 
 
 async def log_event(guild: discord.Guild, category: discord.CategoryChannel, event_type: str, channel_count: int):
     if db_pool is None:
         return
+    oldest_ts = oldest_channel_created_at(category)
     async with db_pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO ticket_events (guild_id, guild_name, category_id, category_name, event_type, channel_count)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO ticket_events (guild_id, guild_name, category_id, category_name, event_type, channel_count, oldest_channel_ts)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             """,
-            str(guild.id), guild.name, str(category.id), category.name, event_type, channel_count,
+            str(guild.id), guild.name, str(category.id), category.name, event_type, channel_count, oldest_ts,
         )
 
 

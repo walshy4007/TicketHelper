@@ -288,6 +288,12 @@
       font-weight: 600;
       margin-top: 4px;
     }
+
+    .cat-oldest {
+      font-size: 11px;
+      color: #b5bac1;
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
@@ -608,8 +614,10 @@
 
     function formatDuration(isoString) {
       const diffSecs = Math.floor((Date.now() - new Date(isoString)) / 1000);
-      const h = Math.floor(diffSecs / 3600);
+      const d = Math.floor(diffSecs / 86400);
+      const h = Math.floor((diffSecs % 86400) / 3600);
       const m = Math.floor((diffSecs % 3600) / 60);
+      if (d > 0) return `${d}d ${h}h`;
       if (h > 0) return `${h}h ${m}m`;
       return `${m}m`;
     }
@@ -644,6 +652,7 @@
               <span class="cat-time">${timeAgo(cat.timestamp)}</span>
             </div>
             ${fullFor ? `<div class="cat-full-duration">Full for ${fullFor}</div>` : ''}
+            ${cat.oldest_channel_ts ? `<div class="cat-oldest">Oldest: ${formatDuration(cat.oldest_channel_ts)}</div>` : ''}
           </div>`;
       }
 

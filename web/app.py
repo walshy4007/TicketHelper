@@ -209,7 +209,7 @@ async def api_live(request: Request):
         rows = await conn.fetch("""
             SELECT DISTINCT ON (guild_id, category_id)
                 guild_id, guild_name, category_id, category_name,
-                channel_count, event_type, timestamp
+                channel_count, event_type, timestamp, oldest_channel_ts
             FROM ticket_events
             ORDER BY guild_id, category_id, timestamp DESC
         """)
@@ -260,6 +260,7 @@ async def api_live(request: Request):
             capacity_since = since_ts.isoformat() if since_ts else None
         else:
             capacity_since = None
+        oldest_ts = r["oldest_channel_ts"]
         result.append({
             "guild_id": r["guild_id"],
             "guild_name": r["guild_name"],
@@ -269,6 +270,7 @@ async def api_live(request: Request):
             "event_type": r["event_type"],
             "timestamp": r["timestamp"].isoformat(),
             "capacity_since": capacity_since,
+            "oldest_channel_ts": oldest_ts.isoformat() if oldest_ts else None,
         })
 
     return JSONResponse(result)
